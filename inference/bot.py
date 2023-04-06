@@ -67,21 +67,38 @@ class ChatModel:
 
             model_from_conf.tie_weights()
 
-            # create a device_map from max_memory
-            device_map = infer_auto_device_map(
-                model_from_conf,
-                max_memory=max_memory,
-                no_split_module_classes=["GPTNeoXLayer"],
-                dtype="float16"
-            )
-            # load the model with the above device_map
-            self._model = AutoModelForCausalLM.from_pretrained(
-                model_name,
-                device_map=device_map,
-                offload_folder="offload",  # optional offload-to-disk overflow directory (auto-created)
-                offload_state_dict=True,
-                torch_dtype=torch.float16
-            )
+            if load_in_8bit:
+                # create a device_map from max_memory
+                device_map = infer_auto_device_map(
+                    model_from_conf,
+                    max_memory=max_memory,
+                    no_split_module_classes=["GPTNeoXLayer"],
+                    dtype="int8"
+                )
+                # load the model with the above device_map
+                self._model = AutoModelForCausalLM.from_pretrained(
+                    model_name,
+                    torch_dtype=torch.float16,
+                    device_map=device_map,
+                    load_in_8bit=load_in_8bit
+                )
+            else:
+                # create a device_map from max_memory
+                device_map = infer_auto_device_map(
+                    model_from_conf,
+                    max_memory=max_memory,
+                    no_split_module_classes=["GPTNeoXLayer"],
+                    dtype="float16"
+                )
+                # load the model with the above device_map
+                self._model = AutoModelForCausalLM.from_pretrained(
+                    model_name,
+                    torch_dtype=torch.float16,
+                    device_map=device_map,
+                    offload_folder="offload",  # optional offload-to-disk overflow directory (auto-created)
+                    offload_state_dict=True,
+                    load_in_8bit=load_in_8bit
+                )
         self._tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     def do_inference(self, prompt, max_new_tokens, do_sample, temperature, top_k, stream_callback=None):
