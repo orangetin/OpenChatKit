@@ -105,13 +105,13 @@ class ChatModel:
                 pad_token_id=self._tokenizer.eos_token_id,
                 stopping_criteria=StoppingCriteriaList([stop_criteria]),
             )
-            del inputs
             output = self._tokenizer.batch_decode(outputs)[0]
-            del outputs
-
             # remove the context from the output
             output = output[len(prompt):]
+            
         finally:
+            del inputs
+            del outputs
             torch.cuda.empty_cache()
 
         return output
