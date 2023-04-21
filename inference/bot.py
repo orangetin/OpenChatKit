@@ -11,7 +11,6 @@ import torch
 import argparse
 import conversation as convo
 import retrieval.wikipedia as wp
-
 from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig, StoppingCriteria, StoppingCriteriaList, BitsAndBytesConfig
 from accelerate import infer_auto_device_map, init_empty_weights
 from optimum.bettertransformer import BetterTransformer
@@ -52,11 +51,9 @@ class ChatModel:
 
     def __init__(self, model_name, gpu_id, max_memory, load_in_8bit, no_gpu):
         if not no_gpu:
-            assert (torch.cuda.is_available())
             device = torch.device('cuda', gpu_id)
         else:
             device = torch.device('cpu')
-
         quantization_config = BitsAndBytesConfig(
             load_in_8bit=load_in_8bit, 
             llm_int8_enable_fp32_cpu_offload=True,
@@ -64,7 +61,7 @@ class ChatModel:
 
         # recommended default for devices with > 40 GB VRAM
         # load model onto one device
-        if max_memory is None:
+        if max_memory is {}:
             device_map="auto"
 
         else:
@@ -91,36 +88,31 @@ class ChatModel:
             quantization_config=quantization_config,
         )
         self._model = BetterTransformer.transform(model_hf, keep_original_model=False, offload_dir="offload")
+        print(self._model.device)
+        #if not load_in_8bit:
+        #  self._model.to(device)  # not supported by load_in_8bit
         
-        if not load_in_8bit:
-           self._model.to(device)  # not supported by load_in_8bit
-
         self._tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     def do_inference(self, prompt, max_new_tokens, do_sample, temperature, top_k, stream_callback=None):
         stop_criteria = StopWordsCriteria(self._tokenizer, [self.human_id], stream_callback)
-        try:
-            inputs = (
-                self._tokenizer(prompt, return_tensors='pt')
-                #.to(self._model.device)
-            )
-            outputs = self._model.generate(
-                **inputs,
-                max_new_tokens=max_new_tokens,
-                do_sample=do_sample,
-                temperature=temperature,
-                top_k=top_k,
-                pad_token_id=self._tokenizer.eos_token_id,
-                stopping_criteria=StoppingCriteriaList([stop_criteria]),
-            )
-            output = self._tokenizer.batch_decode(outputs)[0]
-            # remove the context from the output
-            output = output[len(prompt):]
-            
-        finally:
-            del inputs
-            del outputs
-            torch.cuda.empty_cache()
+        inputs = (
+            self._tokenizer(prompt, return_tensors='pt')
+            .to(self._model.device)
+        )
+        outputs = self._model.generate(
+            **inputs,
+            max_new_tokens=max_new_tokens,
+            do_sample=do_sample,
+            temperature=temperature,
+            top_k=top_k,
+            pad_token_id=self._tokenizer.eos_token_id,
+            stopping_criteria=StoppingCriteriaList([stop_criteria]),
+        )
+        output = self._tokenizer.batch_decode(outputs)[0]
+
+        # remove the context from the output
+        output = output[len(prompt):]
 
         return output
 
@@ -129,7 +121,7 @@ class OpenChatKitShell(cmd.Cmd):
     intro = "Welcome to OpenChatKit shell.   Type /help or /? to list commands.\n"
     prompt = ">>> "
 
-    def __init__(self, gpu_id, model_name_or_path, max_tokens, sample, temperature, top_k, retrieval, max_memory, do_stream, load_in_8bit, no_gpu: bool):
+    def __init__(self, gpu_id, model_name_or_path, max_tokens, sample, temperature, top_k, retrieval, max_memory, do_stream, load_in_8bit, no_gpu):
         super().__init__()
         self._gpu_id = int(gpu_id)
         self._model_name_or_path = model_name_or_path
@@ -250,7 +242,7 @@ def main():
     parser.add_argument(
         '--temperature',
         default=0.6,
-        type=int,
+        type=float,
         help='temperature for the LM'
     )
     parser.add_argument(
@@ -263,7 +255,7 @@ def main():
         '--retrieval',
         default=False,
         action='store_true',
-        help='argument queries with context from the retrieval index'
+        help='augment queries with context from the retrieval index'
     )
     parser.add_argument(
         '--no-gpu',
@@ -306,7 +298,7 @@ def main():
     if args.cpu_ram is not None:
         # add cpu to max-memory if given
         max_memory['cpu'] = f"{int(args.cpu_ram)}GiB"
-        
+
     OpenChatKitShell(
         args.gpu_id,
         args.model,
