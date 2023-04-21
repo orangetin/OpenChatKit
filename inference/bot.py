@@ -59,9 +59,7 @@ class ChatModel:
             load_in_8bit=load_in_8bit, 
             llm_int8_enable_fp32_cpu_offload=True,
         )   # config to load in 8-bit if load_in_8bit
-
-        # recommended default for devices with > 40 GB VRAM
-        # load model onto one device
+        
         if max_memory == {}:
             device_map="auto"
 
@@ -70,13 +68,14 @@ class ChatModel:
             # load empty weights
             with init_empty_weights():
                 model_from_conf = AutoModelForCausalLM.from_config(config)
-
             model_from_conf.tie_weights()
-
+            
+            # correct dtype for cpu/gpu
             if no_gpu:
                 dtype = "float32"
             else:
                 dtype = "float16"
+                
             #create a device_map from max_memory
             device_map = infer_auto_device_map(
                 model_from_conf,
@@ -84,7 +83,8 @@ class ChatModel:
                 no_split_module_classes=["GPTNeoXLayer"],
                 dtype=dtype,
             )
-
+        
+        # correct dtype for cpu/gpu
         if no_gpu:
             torch_dtype = torch.float32
         else:
@@ -98,7 +98,7 @@ class ChatModel:
             quantization_config=quantization_config,
         )
 
-        self._model = BetterTransformer.transform(model_hf, keep_original_model=False)
+        self._model = BetterTransformer.transform(model_hf, keep_original_model=False, offload_dir="offload")
         
         self._tokenizer = AutoTokenizer.from_pretrained(model_name)
 
@@ -295,7 +295,13 @@ def main():
         help='indicates whether to load model in 8 bit'
     )
     args = parser.parse_args()
+    
+    if args.no_gpu and args.cpu_ram == None:
+        raise Exception("-r must be passed when using --no-gpu")
 
+    if args.no_gpu and args.load_in_8bit == True:
+        raise Exception("--load-in-8bit cannot be passed when using --no-gpu")
+    
     max_memory = {}
     # set max_memory dictionary if given
     if args.gpu_vram is not None:
@@ -313,7 +319,7 @@ def main():
         args.max_tokens,
         args.sample,
         args.temperature,
-        args.top_k,--
+        args.top_k,
         args.retrieval,
         max_memory,
         not args.no_stream,
