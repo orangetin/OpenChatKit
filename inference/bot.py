@@ -62,7 +62,7 @@ class ChatModel:
 
         # recommended default for devices with > 40 GB VRAM
         # load model onto one device
-        if max_memory is {}:
+        if max_memory == {}:
             device_map="auto"
 
         else:
@@ -98,7 +98,7 @@ class ChatModel:
             quantization_config=quantization_config,
         )
 
-        self._model = BetterTransformer.transform(model_hf, keep_original_model=False, offload_dir="offload")
+        self._model = BetterTransformer.transform(model_hf, keep_original_model=False)
         
         self._tokenizer = AutoTokenizer.from_pretrained(model_name)
 
