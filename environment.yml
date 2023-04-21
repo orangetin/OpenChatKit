@@ -27,4 +27,3 @@ dependencies:
       - transformers==4.27.4
       - wandb==0.13.10
       - zstandard==0.20.0
-      - optimum==1.8.2
