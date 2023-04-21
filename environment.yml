@@ -28,3 +28,5 @@ dependencies:
       - wandb==0.13.10
       - zstandard==0.20.0
       - optimum==1.8.2
+      - black==23.1
+      - ruff>=0.0.241,<=0.0.259
