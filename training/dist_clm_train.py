@@ -117,9 +117,7 @@ def train_loop(args, pipe, device, train_data_loader, test_data_loader):
             pp_comm.broadcast(input_ids, 0)
 
             labels = input_ids.clone()
-            pipe.sgd_iter(
-                input_ids, labels, loss_func=gpt_loss_func
-            )
+            pipe.sgd_iter(input_ids, labels, loss_func=gpt_loss_func)
 
             if (
                 args.evaluation_steps > 0
@@ -152,9 +150,7 @@ def train_loop(args, pipe, device, train_data_loader, test_data_loader):
             pp_comm.broadcast(input_ids, 0)
 
             labels = input_ids.clone()
-            pipe.sgd_iter(
-                input_ids, labels, loss_func=gpt_loss_func
-            )
+            pipe.sgd_iter(input_ids, labels, loss_func=gpt_loss_func)
 
             if (
                 args.evaluation_steps > 0
@@ -178,9 +174,7 @@ def train_loop(args, pipe, device, train_data_loader, test_data_loader):
 
             pp_comm.broadcast(input_ids, 0)
             labels = input_ids.clone()
-            pipe.sgd_iter(
-                input_ids, labels, loss_func=gpt_loss_func
-            )  # lm loss func
+            pipe.sgd_iter(input_ids, labels, loss_func=gpt_loss_func)  # lm loss func
 
             if (
                 args.evaluation_steps > 0

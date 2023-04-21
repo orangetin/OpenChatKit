@@ -185,9 +185,7 @@ def train_loop(args, pipe, device, train_data_loader, test_data_loader):
                 break
             pp_comm.broadcast(input_ids, 0)
             pp_comm.broadcast(prefix_masks, 0)
-            pipe.sgd_iter(
-                None, None, aux_input_data={"prefix_masks": prefix_masks}
-            )
+            pipe.sgd_iter(None, None, aux_input_data={"prefix_masks": prefix_masks})
 
             if (
                 args.evaluation_steps > 0
