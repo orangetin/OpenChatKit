@@ -4,14 +4,21 @@ import sys
 INFERENCE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # TODO: PYTHONPATH hacks are never a good idea. clean this up later
-sys.path.append(os.path.join(INFERENCE_DIR, '..'))
+sys.path.append(os.path.join(INFERENCE_DIR, ".."))
 
 import cmd
 import torch
 import argparse
 import conversation as convo
 import retrieval.wikipedia as wp
-from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig, StoppingCriteria, StoppingCriteriaList, BitsAndBytesConfig
+from transformers import (
+    AutoTokenizer,
+    AutoModelForCausalLM,
+    AutoConfig,
+    StoppingCriteria,
+    StoppingCriteriaList,
+    BitsAndBytesConfig,
+)
 from accelerate import infer_auto_device_map, init_empty_weights
 from optimum.bettertransformer import BetterTransformer
 
@@ -20,11 +27,13 @@ class StopWordsCriteria(StoppingCriteria):
     def __init__(self, tokenizer, stop_words, stream_callback):
         self._tokenizer = tokenizer
         self._stop_words = stop_words
-        self._partial_result = ''
-        self._stream_buffer = ''
+        self._partial_result = ""
+        self._stream_buffer = ""
         self._stream_callback = stream_callback
 
-    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
+    def __call__(
+        self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs
+    ) -> bool:
         first = not self._partial_result
         text = self._tokenizer.decode(input_ids[0, -1])
         self._partial_result += text
@@ -41,7 +50,7 @@ class StopWordsCriteria(StoppingCriteria):
                         self._stream_buffer += text
                         return False
             self._stream_callback(self._stream_buffer + text)
-            self._stream_buffer = ''
+            self._stream_buffer = ""
         return False
 
 
@@ -51,19 +60,19 @@ class ChatModel:
 
     def __init__(self, model_name, gpu_id, max_memory, load_in_8bit, no_gpu):
         if not no_gpu:
-            device = torch.device('cuda', gpu_id)
+            torch.device("cuda", gpu_id)
         else:
-            device = torch.device('cpu')
+            torch.device("cpu")
 
         quantization_config = BitsAndBytesConfig(
-            load_in_8bit=load_in_8bit, 
+            load_in_8bit=load_in_8bit,
             llm_int8_enable_fp32_cpu_offload=True,
-        )   # config to load in 8-bit if load_in_8bit
+        )  # config to load in 8-bit if load_in_8bit
 
         # recommended default for devices with > 40 GB VRAM
         # load model onto one device
         if max_memory == {}:
-            device_map="auto"
+            device_map = "auto"
 
         else:
             config = AutoConfig.from_pretrained(model_name)
@@ -77,14 +86,14 @@ class ChatModel:
                 dtype = "float32"
             else:
                 dtype = "float16"
-            #create a device_map from max_memory
+            # create a device_map from max_memory
             device_map = infer_auto_device_map(
                 model_from_conf,
                 max_memory=max_memory,
                 no_split_module_classes=["GPTNeoXLayer"],
                 dtype=dtype,
             )
-        
+
         # must be in float32 in cpu
         if no_gpu:
             torch_dtype = torch.float32
@@ -92,23 +101,32 @@ class ChatModel:
             torch_dtype = torch.float16
 
         model_hf = AutoModelForCausalLM.from_pretrained(
-            model_name, 
-            torch_dtype=torch_dtype, 
-            device_map=device_map, 
+            model_name,
+            torch_dtype=torch_dtype,
+            device_map=device_map,
             offload_folder="offload",
             quantization_config=quantization_config,
         )
 
-        self._model = BetterTransformer.transform(model_hf, keep_original_model=False, offload_dir="offload")
-        
+        self._model = BetterTransformer.transform(
+            model_hf, keep_original_model=False, offload_dir="offload"
+        )
+
         self._tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-    def do_inference(self, prompt, max_new_tokens, do_sample, temperature, top_k, stream_callback=None):
-        stop_criteria = StopWordsCriteria(self._tokenizer, [self.human_id], stream_callback)
-        inputs = (
-            self._tokenizer(prompt, return_tensors='pt')
-            .to(self._model.device)
+    def do_inference(
+        self,
+        prompt,
+        max_new_tokens,
+        do_sample,
+        temperature,
+        top_k,
+        stream_callback=None,
+    ):
+        stop_criteria = StopWordsCriteria(
+            self._tokenizer, [self.human_id], stream_callback
         )
+        inputs = self._tokenizer(prompt, return_tensors="pt").to(self._model.device)
         outputs = self._model.generate(
             **inputs,
             max_new_tokens=max_new_tokens,
@@ -121,7 +139,7 @@ class ChatModel:
         output = self._tokenizer.batch_decode(outputs)[0]
 
         # remove the context from the output
-        output = output[len(prompt):]
+        output = output[len(prompt) :]
 
         return output
 
@@ -130,7 +148,20 @@ class OpenChatKitShell(cmd.Cmd):
     intro = "Welcome to OpenChatKit shell.   Type /help or /? to list commands.\n"
     prompt = ">>> "
 
-    def __init__(self, gpu_id, model_name_or_path, max_tokens, sample, temperature, top_k, retrieval, max_memory, do_stream, load_in_8bit, no_gpu):
+    def __init__(
+        self,
+        gpu_id,
+        model_name_or_path,
+        max_tokens,
+        sample,
+        temperature,
+        top_k,
+        retrieval,
+        max_memory,
+        do_stream,
+        load_in_8bit,
+        no_gpu,
+    ):
         super().__init__()
         self._gpu_id = int(gpu_id)
         self._model_name_or_path = model_name_or_path
@@ -149,20 +180,25 @@ class OpenChatKitShell(cmd.Cmd):
             print(f"Loading {self._model_name_or_path} to cuda:{self._gpu_id}...")
         else:
             print(f"Loading {self._model_name_or_path} to cpu...")
-        self._model = ChatModel(self._model_name_or_path, self._gpu_id, self._max_memory, self._load_in_8bit, self._no_gpu)
+        self._model = ChatModel(
+            self._model_name_or_path,
+            self._gpu_id,
+            self._max_memory,
+            self._load_in_8bit,
+            self._no_gpu,
+        )
 
         if self._retrieval:
-            print(f"Loading retrieval index...")
+            print("Loading retrieval index...")
             self._index = wp.WikipediaIndex()
 
-        self._convo = convo.Conversation(
-            self._model.human_id, self._model.bot_id)
+        self._convo = convo.Conversation(self._model.human_id, self._model.bot_id)
 
     def precmd(self, line):
-        if line.startswith('/'):
+        if line.startswith("/"):
             return line[1:]
         else:
-            return 'say ' + line
+            return "say " + line
 
     def do_say(self, arg):
         if self._retrieval:
@@ -178,7 +214,7 @@ class OpenChatKitShell(cmd.Cmd):
             self._sample,
             self._temperature,
             self._top_k,
-            lambda x : print(x, end='', flush=True) if self._do_stream else None,
+            lambda x: print(x, end="", flush=True) if self._do_stream else None,
         )
 
         self._convo.push_model_response(output)
@@ -187,11 +223,7 @@ class OpenChatKitShell(cmd.Cmd):
 
     def do_raw_say(self, arg):
         output = self._model.do_inference(
-            arg,
-            self._max_tokens,
-            self._sample,
-            self._temperature,
-            self._top_k
+            arg, self._max_tokens, self._sample, self._temperature, self._top_k
         )
 
         print(output)
@@ -200,8 +232,7 @@ class OpenChatKitShell(cmd.Cmd):
         print(self._convo.get_raw_prompt())
 
     def do_reset(self, arg):
-        self._convo = convo.Conversation(
-            self._model.human_id, self._model.bot_id)
+        self._convo = convo.Conversation(self._model.human_id, self._model.bot_id)
 
     def do_hyperparameters(self, arg):
         print(
@@ -217,83 +248,66 @@ class OpenChatKitShell(cmd.Cmd):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='test harness for OpenChatKit')
+    parser = argparse.ArgumentParser(description="test harness for OpenChatKit")
 
     parser.add_argument(
-        '--gpu-id',
-        default=0,
-        type=int,
-        help='the ID of the GPU to run on'
+        "--gpu-id", default=0, type=int, help="the ID of the GPU to run on"
     )
     parser.add_argument(
-        '--model',
+        "--model",
         default=f"{INFERENCE_DIR}/../huggingface_models/Pythia-Chat-Base-7B",
-        help='name/path of the model'
+        help="name/path of the model",
     )
     parser.add_argument(
-        '--max-tokens',
+        "--max-tokens",
         default=128,
         type=int,
-        help='the maximum number of tokens to generate'
+        help="the maximum number of tokens to generate",
     )
     parser.add_argument(
-        '--sample',
+        "--sample",
         default=True,
-        action='store_true',
-        help='indicates whether to sample'
+        action="store_true",
+        help="indicates whether to sample",
     )
     parser.add_argument(
-        '--no-stream',
-        action='store_true',
-        help='indicates whether to stream tokens'
+        "--no-stream", action="store_true", help="indicates whether to stream tokens"
     )
     parser.add_argument(
-        '--temperature',
-        default=0.6,
-        type=float,
-        help='temperature for the LM'
+        "--temperature", default=0.6, type=float, help="temperature for the LM"
     )
+    parser.add_argument("--top-k", default=40, type=int, help="top-k for the LM")
     parser.add_argument(
-        '--top-k',
-        default=40,
-        type=int,
-        help='top-k for the LM'
-    )
-    parser.add_argument(
-        '--retrieval',
+        "--retrieval",
         default=False,
-        action='store_true',
-        help='augment queries with context from the retrieval index'
+        action="store_true",
+        help="augment queries with context from the retrieval index",
     )
     parser.add_argument(
-        '--no-gpu',
-        default=False,
-        action='store_true',
-        help='argument to use cpu'
+        "--no-gpu", default=False, action="store_true", help="argument to use cpu"
     )
     parser.add_argument(
-        '-g',
-        '--gpu-vram',
-        action='store',
-        help='max VRAM to allocate per GPU',
-        nargs='+',
+        "-g",
+        "--gpu-vram",
+        action="store",
+        help="max VRAM to allocate per GPU",
+        nargs="+",
         required=False,
     )
     parser.add_argument(
-        '-r',
-        '--cpu-ram',
+        "-r",
+        "--cpu-ram",
         default=None,
         type=int,
-        help='max CPU RAM to allocate',
-        required=False
+        help="max CPU RAM to allocate",
+        required=False,
     )
     # `pip install bitsandbytes` to use. No effect when used with -g or -r.
     parser.add_argument(
-        '--load-in-8bit',
+        "--load-in-8bit",
         default=False,
-        action='store_true',
-        help='indicates whether to load model in 8 bit'
+        action="store_true",
+        help="indicates whether to load model in 8 bit",
     )
     args = parser.parse_args()
 
@@ -302,11 +316,13 @@ def main():
     if args.gpu_vram is not None:
         for i in range(len(args.gpu_vram)):
             # assign CUDA ID as label and XGiB as value
-            max_memory[int(args.gpu_vram[i].split(':')[0])] = f"{args.gpu_vram[i].split(':')[1]}GiB"
+            max_memory[
+                int(args.gpu_vram[i].split(":")[0])
+            ] = f"{args.gpu_vram[i].split(':')[1]}GiB"
 
     if args.cpu_ram is not None:
         # add cpu to max-memory if given
-        max_memory['cpu'] = f"{int(args.cpu_ram)}GiB"
+        max_memory["cpu"] = f"{int(args.cpu_ram)}GiB"
 
     OpenChatKitShell(
         args.gpu_id,
@@ -323,5 +339,5 @@ def main():
     ).cmdloop()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

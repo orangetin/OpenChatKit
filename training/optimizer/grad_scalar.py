@@ -33,7 +33,6 @@ class GradScaler(ABC):
 
 
 class ConstantGradScaler(GradScaler):
-
     def update(self, found_inf):
         pass
 
@@ -45,11 +44,17 @@ class ConstantGradScaler(GradScaler):
 
 
 class DynamicGradScaler(GradScaler):
-
-    def __init__(self, initial_scale, min_scale,
-                 growth_factor, backoff_factor,
-                 growth_interval, hysteresis, device=None):
-        """"Grad scaler with dynamic scale that gets adjusted
+    def __init__(
+        self,
+        initial_scale,
+        min_scale,
+        growth_factor,
+        backoff_factor,
+        growth_interval,
+        hysteresis,
+        device=None,
+    ):
+        """ "Grad scaler with dynamic scale that gets adjusted
         during training."""
         super(DynamicGradScaler, self).__init__(initial_scale, device=device)
 
@@ -84,9 +89,10 @@ class DynamicGradScaler(GradScaler):
             self._hysteresis_tracker -= 1
             # Now if we are out of hysteresis count, scale down the loss.
             if self._hysteresis_tracker <= 0:
-                self._scale = torch.max(self._scale * self.backoff_factor,
-                                        self.min_scale)
-                print('##### scale backoff to', self._scale)
+                self._scale = torch.max(
+                    self._scale * self.backoff_factor, self.min_scale
+                )
+                print("##### scale backoff to", self._scale)
         else:
             # If there is no nan/inf, increment the growth tracker.
             self._growth_tracker += 1
@@ -97,16 +103,16 @@ class DynamicGradScaler(GradScaler):
                 self._hysteresis_tracker = self.hysteresis
                 # and scale up the loss scale.
                 self._scale = self._scale * self.growth_factor
-                print('##### scale grow to', self._scale)
+                print("##### scale grow to", self._scale)
 
     def state_dict(self):
         state_dict = {}
-        state_dict['scale'] = self._scale
-        state_dict['growth_tracker'] = self._growth_tracker
-        state_dict['hysteresis_tracker'] = self._hysteresis_tracker
+        state_dict["scale"] = self._scale
+        state_dict["growth_tracker"] = self._growth_tracker
+        state_dict["hysteresis_tracker"] = self._hysteresis_tracker
         return state_dict
 
     def load_state_dict(self, state_dict):
-        self._scale = state_dict['scale'].to(self.device)
-        self._growth_tracker = state_dict['growth_tracker']
-        self._hysteresis_tracker = state_dict['hysteresis_tracker']
+        self._scale = state_dict["scale"].to(self.device)
+        self._growth_tracker = state_dict["growth_tracker"]
+        self._hysteresis_tracker = state_dict["hysteresis_tracker"]
