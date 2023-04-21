@@ -90,7 +90,7 @@ class ChatModel:
             offload_folder="offload",
             quantization_config=quantization_config,
         )
-        self._model = BetterTransformer.transform(model_hf, keep_original_model=True, offload_dir="offload")
+        self._model = BetterTransformer.transform(model_hf, keep_original_model=False, offload_dir="offload")
         
         if not load_in_8bit:
            self._model.to(device)  # not supported by load_in_8bit
