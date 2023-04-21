@@ -296,7 +296,10 @@ def main():
         help='indicates whether to load model in 8 bit'
     )
     args = parser.parse_args()
-
+    
+    if args.no_gpu and args.cpu_ram is None:
+        raise Exception("-r must be passed when using --no-gpu")
+    
     max_memory = {}
     # set max_memory dictionary if given
     if args.gpu_vram is not None:
