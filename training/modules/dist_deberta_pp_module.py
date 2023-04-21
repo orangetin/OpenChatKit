@@ -1,11 +1,15 @@
 from torch import nn
-from .deberta_modules import DebertaV2Embeddings, DebertaV2Layers, DebertaClassificationHead
+from .deberta_modules import (
+    DebertaV2Embeddings,
+    DebertaV2Layers,
+    DebertaClassificationHead,
+)
 
 
 class DebertaStageBase(nn.Module):
     def __init__(self, args, config):
         super().__init__()
-        self._to_cpu = False # (args.dist_backend == "gloo")
+        self._to_cpu = False  # (args.dist_backend == "gloo")
         self.config = config
 
     def _create_first_layer(self):
@@ -15,7 +19,7 @@ class DebertaStageBase(nn.Module):
         return DebertaClassificationHead(self.config)
 
     def _create_transformer_layers(self, first_block=False):
-        return DebertaV2Layers(self.config, first_block=first_block) # TODO: checkpoint
+        return DebertaV2Layers(self.config, first_block=first_block)  # TODO: checkpoint
 
 
 class DebertaStageFirst(DebertaStageBase):
