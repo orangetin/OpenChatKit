@@ -54,6 +54,7 @@ class ChatModel:
             device = torch.device('cuda', gpu_id)
         else:
             device = torch.device('cpu')
+
         quantization_config = BitsAndBytesConfig(
             load_in_8bit=load_in_8bit, 
             llm_int8_enable_fp32_cpu_offload=True,
@@ -72,25 +73,32 @@ class ChatModel:
 
             model_from_conf.tie_weights()
 
+            if no_gpu:
+                dtype = "float32"
+            else:
+                dtype = "float16"
             #create a device_map from max_memory
             device_map = infer_auto_device_map(
                 model_from_conf,
                 max_memory=max_memory,
                 no_split_module_classes=["GPTNeoXLayer"],
-                dtype="float16",
+                dtype=dtype,
             )
+
+        if no_gpu:
+            torch_dtype = torch.float32
+        else:
+            torch_dtype = torch.float16
 
         model_hf = AutoModelForCausalLM.from_pretrained(
             model_name, 
-            torch_dtype=torch.float16, 
+            torch_dtype=torch_dtype, 
             device_map=device_map, 
             offload_folder="offload",
             quantization_config=quantization_config,
         )
+
         self._model = BetterTransformer.transform(model_hf, keep_original_model=False, offload_dir="offload")
-        print(self._model.device)
-        #if not load_in_8bit:
-        #  self._model.to(device)  # not supported by load_in_8bit
         
         self._tokenizer = AutoTokenizer.from_pretrained(model_name)
 
@@ -305,7 +313,7 @@ def main():
         args.max_tokens,
         args.sample,
         args.temperature,
-        args.top_k,
+        args.top_k,--
         args.retrieval,
         max_memory,
         not args.no_stream,
