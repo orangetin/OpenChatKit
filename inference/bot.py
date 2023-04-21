@@ -84,7 +84,8 @@ class ChatModel:
                 no_split_module_classes=["GPTNeoXLayer"],
                 dtype=dtype,
             )
-
+        
+        # must be in float32 in cpu
         if no_gpu:
             torch_dtype = torch.float32
         else:
@@ -313,7 +314,7 @@ def main():
         args.max_tokens,
         args.sample,
         args.temperature,
-        args.top_k,--
+        args.top_k,
         args.retrieval,
         max_memory,
         not args.no_stream,
