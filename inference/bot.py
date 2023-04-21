@@ -62,7 +62,7 @@ class ChatModel:
 
         # recommended default for devices with > 40 GB VRAM
         # load model onto one device
-        if max_memory is {}:
+        if max_memory == {}:
             device_map="auto"
 
         else:
