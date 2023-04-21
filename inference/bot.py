@@ -90,13 +90,15 @@ class ChatModel:
         else:
             torch_dtype = torch.float16
 
-        self._model = AutoModelForCausalLM.from_pretrained(
+        model_hf = AutoModelForCausalLM.from_pretrained(
             model_name, 
             torch_dtype=torch_dtype, 
             device_map=device_map, 
             offload_folder="offload",
             quantization_config=quantization_config,
         )
+
+        self._model = BetterTransformer.transform(model_hf, keep_original_model=False, offload_dir="offload")
         
         self._tokenizer = AutoTokenizer.from_pretrained(model_name)
 
