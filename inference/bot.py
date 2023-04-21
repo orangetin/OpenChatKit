@@ -13,7 +13,6 @@ import conversation as convo
 import retrieval.wikipedia as wp
 from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig, StoppingCriteria, StoppingCriteriaList, BitsAndBytesConfig
 from accelerate import infer_auto_device_map, init_empty_weights
-from optimum.bettertransformer import BetterTransformer
 
 
 class StopWordsCriteria(StoppingCriteria):
