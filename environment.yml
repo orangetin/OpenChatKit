@@ -15,7 +15,7 @@ dependencies:
   - python=3.10.9
   - python-snappy=0.6.1
   - pytorch=2.0.0
-  - pytorch-cuda=11.7
+  - pytorch-cuda=11.8
   - snappy=1.1.9
   - torchaudio=2.0.0
   - torchvision=0.15.0
@@ -28,4 +28,3 @@ dependencies:
       - wandb==0.13.10
       - zstandard==0.20.0
       - optimum==1.8.2
-      
