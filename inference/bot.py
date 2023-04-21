@@ -99,7 +99,7 @@ class ChatModel:
             quantization_config=quantization_config,
         )
 
-        self._model = BetterTransformer.transform(model_hf, keep_original_model=False)
+        self._model = BetterTransformer.transform(model_hf, keep_original_model=False, offload_dir="offload")
         
         self._tokenizer = AutoTokenizer.from_pretrained(model_name)
 
