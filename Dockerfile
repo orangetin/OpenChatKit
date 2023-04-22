@@ -1,5 +1,6 @@
 # Base image
 FROM ubuntu:20.04
+
 VOLUME /app
 
 # Set working directory
@@ -22,17 +23,7 @@ COPY environment.yml .
 RUN conda install mamba -n base -c conda-forge
 RUN mamba env create -f environment.yml 
 
-# Set conda to automatically activate base environment on login
-RUN echo ". /app/conda/etc/profile.d/conda.sh" >> ~/.bashrc && \
-    echo "conda activate OpenChatKit" >> ~/.bashrc
-
 # Copy OpenChatKit code
 COPY . .
 
-# Optional code to prepare for finetuning
-# Install Git LFS
-# RUN git lfs install
-# 
-
-# Set entrypoint to bash shell
-ENTRYPOINT ["/bin/bash"]
+ENTRYPOINT ["/app/setup.sh"]
