@@ -11,7 +11,7 @@ import torch
 import argparse
 import conversation as convo
 import retrieval.wikipedia as wp
-from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig, StoppingCriteria, StoppingCriteriaList
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig, StoppingCriteria, StoppingCriteriaList, BitsAndBytesConfig
 from accelerate import infer_auto_device_map, init_empty_weights
 
 
@@ -48,39 +48,55 @@ class ChatModel:
     human_id = "<human>"
     bot_id = "<bot>"
 
-    def __init__(self, model_name, gpu_id, max_memory):
-        device = torch.device('cuda', gpu_id)   # TODO: allow sending to cpu
+    def __init__(self, model_name, gpu_id, max_memory, load_in_8bit, no_gpu):
+        if not no_gpu:
+            device = torch.device('cuda', gpu_id)
+        else:
+            device = torch.device('cpu')
 
-        # recommended default for devices with > 40 GB VRAM
-        # load model onto one device
-        if max_memory is None:
-            self._model = AutoModelForCausalLM.from_pretrained(
-                model_name, torch_dtype=torch.float16, device_map="auto")
-            self._model.to(device)
-        # load the model with the given max_memory config (for devices with insufficient VRAM or multi-gpu)
+        quantization_config = BitsAndBytesConfig(
+            load_in_8bit=load_in_8bit, 
+            llm_int8_enable_fp32_cpu_offload=True,
+        )   # config to load in 8-bit if load_in_8bit
+        
+        if max_memory == {}:
+            device_map="auto"
+
         else:
             config = AutoConfig.from_pretrained(model_name)
             # load empty weights
             with init_empty_weights():
                 model_from_conf = AutoModelForCausalLM.from_config(config)
-
             model_from_conf.tie_weights()
-
-            # create a device_map from max_memory
+            
+            # correct dtype for cpu/gpu
+            if no_gpu:
+                dtype = "float32"
+            else:
+                dtype = "float16"
+                
+            #create a device_map from max_memory
             device_map = infer_auto_device_map(
                 model_from_conf,
                 max_memory=max_memory,
                 no_split_module_classes=["GPTNeoXLayer"],
-                dtype="float16"
+                dtype=dtype,
             )
-            # load the model with the above device_map
-            self._model = AutoModelForCausalLM.from_pretrained(
-                model_name,
-                device_map=device_map,
-                offload_folder="offload",  # optional offload-to-disk overflow directory (auto-created)
-                offload_state_dict=True,
-                torch_dtype=torch.float16
-            )
+        
+        # correct dtype for cpu/gpu
+        if no_gpu:
+            torch_dtype = torch.float32
+        else:
+            torch_dtype = torch.float16
+
+        self._model = AutoModelForCausalLM.from_pretrained(
+            model_name, 
+            torch_dtype=torch_dtype, 
+            device_map=device_map, 
+            offload_folder="offload",
+            quantization_config=quantization_config,
+        )
+        
         self._tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     def do_inference(self, prompt, max_new_tokens, do_sample, temperature, top_k, stream_callback=None):
@@ -110,7 +126,7 @@ class OpenChatKitShell(cmd.Cmd):
     intro = "Welcome to OpenChatKit shell.   Type /help or /? to list commands.\n"
     prompt = ">>> "
 
-    def __init__(self, gpu_id, model_name_or_path, max_tokens, sample, temperature, top_k, retrieval, max_memory, do_stream):
+    def __init__(self, gpu_id, model_name_or_path, max_tokens, sample, temperature, top_k, retrieval, max_memory, do_stream, load_in_8bit, no_gpu):
         super().__init__()
         self._gpu_id = int(gpu_id)
         self._model_name_or_path = model_name_or_path
@@ -121,10 +137,15 @@ class OpenChatKitShell(cmd.Cmd):
         self._retrieval = retrieval
         self._max_memory = max_memory
         self._do_stream = do_stream
+        self._load_in_8bit = load_in_8bit
+        self._no_gpu = no_gpu
 
     def preloop(self):
-        print(f"Loading {self._model_name_or_path} to cuda:{self._gpu_id}...")
-        self._model = ChatModel(self._model_name_or_path, self._gpu_id, self._max_memory)
+        if not self._no_gpu:
+            print(f"Loading {self._model_name_or_path} to cuda:{self._gpu_id}...")
+        else:
+            print(f"Loading {self._model_name_or_path} to cpu...")
+        self._model = ChatModel(self._model_name_or_path, self._gpu_id, self._max_memory, self._load_in_8bit, self._no_gpu)
 
         if self._retrieval:
             print(f"Loading retrieval index...")
@@ -198,6 +219,7 @@ def main():
     parser.add_argument(
         '--gpu-id',
         default=0,
+        type=int,
         help='the ID of the GPU to run on'
     )
     parser.add_argument(
@@ -208,6 +230,7 @@ def main():
     parser.add_argument(
         '--max-tokens',
         default=128,
+        type=int,
         help='the maximum number of tokens to generate'
     )
     parser.add_argument(
@@ -224,11 +247,13 @@ def main():
     parser.add_argument(
         '--temperature',
         default=0.6,
+        type=float,
         help='temperature for the LM'
     )
     parser.add_argument(
         '--top-k',
         default=40,
+        type=int,
         help='top-k for the LM'
     )
     parser.add_argument(
@@ -236,6 +261,12 @@ def main():
         default=False,
         action='store_true',
         help='augment queries with context from the retrieval index'
+    )
+    parser.add_argument(
+        '--no-gpu',
+        default=False,
+        action='store_true',
+        help='argument to use cpu'
     )
     parser.add_argument(
         '-g',
@@ -253,20 +284,31 @@ def main():
         help='max CPU RAM to allocate',
         required=False
     )
+    # `pip install bitsandbytes` to use. No effect when used with -g or -r.
+    parser.add_argument(
+        '--load-in-8bit',
+        default=False,
+        action='store_true',
+        help='indicates whether to load model in 8 bit'
+    )
     args = parser.parse_args()
+    
+    if args.no_gpu and args.cpu_ram == None:
+        raise Exception("-r must be passed when using --no-gpu")
 
+    if args.no_gpu and args.load_in_8bit == True:
+        raise Exception("--load-in-8bit cannot be passed when using --no-gpu")
+    
+    max_memory = {}
     # set max_memory dictionary if given
-    if args.gpu_vram is None:
-        max_memory = None
-    else:
-        max_memory = {}
+    if args.gpu_vram is not None:
         for i in range(len(args.gpu_vram)):
             # assign CUDA ID as label and XGiB as value
             max_memory[int(args.gpu_vram[i].split(':')[0])] = f"{args.gpu_vram[i].split(':')[1]}GiB"
 
-        if args.cpu_ram is not None:
-            # add cpu to max-memory if given
-            max_memory['cpu'] = f"{int(args.cpu_ram)}GiB"
+    if args.cpu_ram is not None:
+        # add cpu to max-memory if given
+        max_memory['cpu'] = f"{int(args.cpu_ram)}GiB"
 
     OpenChatKitShell(
         args.gpu_id,
@@ -278,6 +320,8 @@ def main():
         args.retrieval,
         max_memory,
         not args.no_stream,
+        args.load_in_8bit,
+        args.no_gpu,
     ).cmdloop()
 
 
