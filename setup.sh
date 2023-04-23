@@ -2,26 +2,22 @@
 
 DIR=$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
 
-# run choice => ['inference', 'train', 'prepare']
 ARG_0=$1
 
-# setup conda
-eval "$(/app/conda/bin/conda shell.bash hook)"
-conda activate OpenChatKit
+eval "$(/config/bin/micromamba shell hook -s posix)"
+micromamba activate OpenChatKit
 
 POSITIONAL_ARGS=()
 
-if [ ARG_0 = 'inference' ]; then
+if [[ $ARG_0 == 'inference' ]]; then
 	shift
 	(trap 'kill 0' SIGINT; \
-        python ${DIR}/inference/bot.py $(echo $@) \
+        python /app/OpenChatKit/inference/bot.py $(echo $@) \
             & \
         wait)
 
-elif [ ARG_0 = 'train' ]; then
+elif [[ $ARG_0 == 'train' ]]; then
 	shift
-	
-	echo "Initializing training..."
 
 	while [[ $# -gt 0 ]]; do
           case $1 in
@@ -41,25 +37,25 @@ elif [ ARG_0 = 'train' ]; then
           esac
         done
 
-	if [ MODEL = 'gpt-neox' ]; then
+	if [[ $MODEL == 'gpt-neox' ]]; then
 		(trap 'kill 0' SIGINT; \
-		bash ${DIR}/training/finetune_GPT-NeoXT-Chat-Base-20B.sh \
+		bash /app/OpenChatKit/training/finetune_GPT-NeoXT-Chat-Base-20B.sh \
                     & \
                 wait)
-	elif [ MODEL = 'pythia' ]; then
+	elif [[ $MODEL == 'pythia' ]]; then
 		(trap 'kill 0' SIGINT; \
-                bash ${DIR}/training/finetune_Pythia-Chat-Base-7B.sh \
+                bash /app/OpenChatKit/training/finetune_Pythia-Chat-Base-7B.sh \
                     & \
                 wait)
         else
                 # default MODEL=pythia
 		(trap 'kill 0' SIGINT; \
-                bash ${DIR}/training/finetune_Pythia-Chat-Base-7B.sh \
+                bash /app/OpenChatKit/training/finetune_Pythia-Chat-Base-7B.sh \
                     & \
                 wait)
 	fi
 
-elif [ ARG_0 = "prepare" ]; then
+elif [[ $ARG_0 == 'prepare' ]]; then
 	shift
 	echo "Preparing..."
 
@@ -100,25 +96,25 @@ elif [ ARG_0 = "prepare" ]; then
 
 	echo "Preparing model ${MODEL}..."
 
-	if [ MODEL = 'gpt-neox' ]; then
+	if [[ $MODEL == 'gpt-neox' ]]; then
 		(trap 'kill 0' SIGINT; \
-		python ${DIR}/pretrained/GPT-NeoX-20B/prepare.py \
+		python /app/OpenChatKit/pretrained/GPT-NeoX-20B/prepare.py \
 		    & \
 		wait)
-	elif [ MODEL = 'pythia' ]; then
+	elif [[ $MODEL == 'pythia' ]]; then
 		(trap 'kill 0' SIGINT; \
-                python ${DIR}/pretrained/Pythia-6.9B-deduped/prepare.py \
+                python /app/OpenChatKit/pretrained/Pythia-6.9B-deduped/prepare.py \
                     & \
                 wait)
 	else
 		# default MODEL=pythia
 		(trap 'kill 0' SIGINT; \
-                python ${DIR}/pretrained/Pythia-6.9B-deduped/prepare.py \
+                python /app/OpenChatKit/pretrained/Pythia-6.9B-deduped/prepare.py \
                     & \
                 wait)
 	fi
 
-	if [ BITS = YES ]; then
+	if [[ $BITS == YES ]]; then
 		echo "Installing bitsandbytes..."
 		(trap 'kill 0' SIGINT; \
                 python -m pip install bitsandbytes \
@@ -130,7 +126,7 @@ elif [ ARG_0 = "prepare" ]; then
 else
 	# defaults to inference
         (trap 'kill 0' SIGINT; \
-        python ${DIR}/inference/bot.py $(echo $@) \
+        python /app/OpenChatKit/inference/bot.py $(echo $@) \
             & \
         wait)
 
