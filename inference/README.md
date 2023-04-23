@@ -83,7 +83,7 @@ How it works:
 - https://www.youtube.com/embed/MWCSGj9jEAo
 
 ## Running on Google Colab
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/togethercomputer/OpenChatKit/blob/main/inference/example/example.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/orangetin/OpenChatKit/blob/main/inference/example/example.ipynb)
 
 In the [example notebook](example/example.ipynb), you will find code to run the Pythia-Chat-Base-7B 8-bit quantized model. This is recommended for the free version of Colab. If you'd like to disable quantization, simple remove the `--load-in-8bit` flag from the last cell.
 
