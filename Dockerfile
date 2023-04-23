@@ -1,29 +1,30 @@
 # Base image
 FROM ubuntu:20.04
 
-VOLUME /app
-
 # Set working directory
-WORKDIR /app
+WORKDIR /config
 
 # Update and install required packages
-RUN apt-get update && \
-    apt-get install git-lfs wget gcc -y && \
-    rm -rf /var/lib/apt/lists/*
-
-# Download and install Miniconda
-RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
-    bash Miniconda3-latest-Linux-x86_64.sh -b -p /app/conda && \
-    rm Miniconda3-latest-Linux-x86_64.sh
-
-ENV PATH=/app/conda/bin:${PATH}
+RUN apt-get update \
+    && apt-get install git-lfs wget curl gcc -y \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create OpenChatKit environment
 COPY environment.yml .
-RUN conda install mamba -n base -c conda-forge
-RUN mamba env create -f environment.yml 
+
+RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
+RUN eval "$(./bin/micromamba shell hook -s posix)" && micromamba create -f environment.yml
 
 # Copy OpenChatKit code
-COPY . .
+COPY setup.sh .
 
-ENTRYPOINT ["/app/setup.sh"]
+RUN mkdir /app && cd /app && git clone https://github.com/orangetin/OpenChatKit.git
+
+RUN chmod +x setup.sh
+
+RUN echo "df -h"
+
+VOLUME ["/app"]
+VOLUME ["/config"]
+
+ENTRYPOINT ["/config/setup.sh"]
