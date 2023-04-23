@@ -33,7 +33,7 @@ In this repo, you'll find code for:
 - [OpenChatKit Feedback App](https://huggingface.co/spaces/togethercomputer/OpenChatKit)
 Feedback helps improve the bot and open-source AI research.
 
-- [Run it on Google Colab](inference/README.md#running-on-google-colab) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/togethercomputer/OpenChatKit/blob/main/inference/example/example.ipynb)
+- [Run it on Google Colab](inference/README.md#running-on-google-colab) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/orangetin/OpenChatKit/blob/main/inference/example/example.ipynb)
 - Continue reading to run it on your own!
 
 # Getting Started
