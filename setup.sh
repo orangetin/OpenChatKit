@@ -20,7 +20,8 @@ if [ ARG_0 = 'inference' ]; then
 
 elif [ ARG_0 = 'train' ]; then
 	shift
-	echo "train"
+	
+	echo "Initializing training..."
 
 	while [[ $# -gt 0 ]]; do
           case $1 in
