@@ -9,22 +9,29 @@ RUN apt-get update \
     && apt-get install git-lfs wget curl gcc -y \
     && rm -rf /var/lib/apt/lists/*
 
-# Create OpenChatKit environment
-COPY environment.yml .
+# Create OpenChatKit code to /app
+COPY . /app
 
+
+# install micromamba
+
+# Linux Intel (x86_64):
 RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
-RUN eval "$(./bin/micromamba shell hook -s posix)" && micromamba create -f environment.yml
+# # Linux ARM64:
+# RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-aarch64/latest | tar -xvj bin/micromamba
+# # Linux Power:
+# RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-ppc64le/latest | tar -xvj bin/micromamba
+# # macOS Intel (x86_64):
+# RUN curl -Ls https://micro.mamba.pm/api/micromamba/osx-64/latest | tar -xvj bin/micromamba
+# # macOS Silicon/M1 (ARM64):
+# RUN curl -Ls https://micro.mamba.pm/api/micromamba/osx-arm64/latest | tar -xvj bin/micromamba
 
-# Copy OpenChatKit code
-COPY setup.sh .
 
-RUN mkdir /app && cd /app && git clone https://github.com/orangetin/OpenChatKit.git
+# setup venv
+RUN eval "$(./bin/micromamba shell hook -s posix)" && micromamba create -f /app/environment.yml
 
-RUN chmod +x setup.sh
+# make setup.sh executable if it's not already
+RUN chmod +x /app/setup.sh
 
-RUN echo "df -h"
-
-VOLUME ["/app"]
-VOLUME ["/config"]
-
-ENTRYPOINT ["/config/setup.sh"]
+# run script on start
+ENTRYPOINT ["/app/setup.sh"]
