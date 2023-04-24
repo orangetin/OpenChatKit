@@ -2,7 +2,7 @@
 FROM ubuntu:20.04
 
 # Set working directory
-WORKDIR /config
+WORKDIR /app
 
 # Update and install required packages
 RUN apt-get update \
@@ -10,13 +10,11 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Create OpenChatKit code to /app
-COPY . /app
-
+COPY . .
 
 # install micromamba
-
 # Linux Intel (x86_64):
-RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
+RUN mkdir /config && cd /config && curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
 # # Linux ARM64:
 # RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-aarch64/latest | tar -xvj bin/micromamba
 # # Linux Power:
@@ -26,12 +24,14 @@ RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bi
 # # macOS Silicon/M1 (ARM64):
 # RUN curl -Ls https://micro.mamba.pm/api/micromamba/osx-arm64/latest | tar -xvj bin/micromamba
 
+# setup venv and install bitsandbytes
+RUN eval "$(/config/bin/micromamba shell hook -s posix)" && micromamba create -f environment.yml
 
-# setup venv
-RUN eval "$(./bin/micromamba shell hook -s posix)" && micromamba create -f /app/environment.yml
+# OPTIONAL: Install bitsandbytes
+RUN eval "$(/config/bin/micromamba shell hook -s posix)" && micromamba activate OpenChatKit && pip install bitsandbytes
 
 # make setup.sh executable if it's not already
-RUN chmod +x /app/setup.sh
+RUN chmod +x setup.sh
 
 # run script on start
 ENTRYPOINT ["/app/setup.sh"]
