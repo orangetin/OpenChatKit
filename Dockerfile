@@ -25,7 +25,7 @@ RUN mkdir /config && cd /config && curl -Ls https://micro.mamba.pm/api/micromamb
 # RUN curl -Ls https://micro.mamba.pm/api/micromamba/osx-arm64/latest | tar -xvj bin/micromamba
 
 # setup venv and install bitsandbytes
-RUN eval "$(/config/bin/micromamba shell hook -s posix)" && micromamba create -f environment.yml
+RUN eval "$(/config/bin/micromamba shell hook -s posix)" && micromamba create -f environment.yml && micromamba clean --all --yes
 
 # OPTIONAL: Install bitsandbytes
 RUN eval "$(/config/bin/micromamba shell hook -s posix)" && micromamba activate OpenChatKit && pip install bitsandbytes
