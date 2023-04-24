@@ -12,7 +12,7 @@ POSITIONAL_ARGS=()
 if [[ $ARG_0 == 'inference' ]]; then
 	shift
 	(trap 'kill 0' SIGINT; \
-        python /app/OpenChatKit/inference/bot.py $(echo $@) \
+        python /app/inference/bot.py $(echo $@) \
             & \
         wait)
 
@@ -39,18 +39,18 @@ elif [[ $ARG_0 == 'train' ]]; then
 
 	if [[ $MODEL == 'gpt-neox' ]]; then
 		(trap 'kill 0' SIGINT; \
-		bash /app/OpenChatKit/training/finetune_GPT-NeoXT-Chat-Base-20B.sh \
+		bash ${DIR}/training/finetune_GPT-NeoXT-Chat-Base-20B.sh \
                     & \
                 wait)
 	elif [[ $MODEL == 'pythia' ]]; then
 		(trap 'kill 0' SIGINT; \
-                bash /app/OpenChatKit/training/finetune_Pythia-Chat-Base-7B.sh \
+                bash ${DIR}/training/finetune_Pythia-Chat-Base-7B.sh \
                     & \
                 wait)
         else
                 # default MODEL=pythia
 		(trap 'kill 0' SIGINT; \
-                bash /app/OpenChatKit/training/finetune_Pythia-Chat-Base-7B.sh \
+                bash ${DIR}/training/finetune_Pythia-Chat-Base-7B.sh \
                     & \
                 wait)
 	fi
@@ -68,7 +68,7 @@ elif [[ $ARG_0 == 'prepare' ]]; then
 	    & \
 	git lfs install \
 	    & \
-	python data/OIG/prepare.py \
+	python ${DIR}/data/OIG/prepare.py \
 	    & \
 	wait)
 
@@ -78,10 +78,6 @@ elif [[ $ARG_0 == 'prepare' ]]; then
 	      MODEL="$2"
 	      shift # past argument
 	      shift # past value
-	      ;;
-	    --bitsandbytes)
-	      BITS=YES
-	      shift # past argument
 	      ;;
 	    -*|--*)
 	      echo "Unknown option $1"
@@ -98,35 +94,28 @@ elif [[ $ARG_0 == 'prepare' ]]; then
 
 	if [[ $MODEL == 'gpt-neox' ]]; then
 		(trap 'kill 0' SIGINT; \
-		python /app/OpenChatKit/pretrained/GPT-NeoX-20B/prepare.py \
+		python ${DIR}/pretrained/GPT-NeoX-20B/prepare.py \
 		    & \
 		wait)
 	elif [[ $MODEL == 'pythia' ]]; then
 		(trap 'kill 0' SIGINT; \
-                python /app/OpenChatKit/pretrained/Pythia-6.9B-deduped/prepare.py \
+                python ${DIR}/pretrained/Pythia-6.9B-deduped/prepare.py \
                     & \
                 wait)
 	else
 		# default MODEL=pythia
 		(trap 'kill 0' SIGINT; \
-                python /app/OpenChatKit/pretrained/Pythia-6.9B-deduped/prepare.py \
+                python ${DIR}/pretrained/Pythia-6.9B-deduped/prepare.py \
                     & \
                 wait)
 	fi
 
-	if [[ $BITS == YES ]]; then
-		echo "Installing bitsandbytes..."
-		(trap 'kill 0' SIGINT; \
-                python -m pip install bitsandbytes \
-                    & \
-                wait)
-	fi
 	echo "Done"
 
 else
 	# defaults to inference
         (trap 'kill 0' SIGINT; \
-        python /app/OpenChatKit/inference/bot.py $(echo $@) \
+        python ${DIR}/inference/bot.py $(echo $@) \
             & \
         wait)
 
