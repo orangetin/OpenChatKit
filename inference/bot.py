@@ -71,7 +71,7 @@ class ChatModel:
             
             # correct dtype for cpu/gpu
             if no_gpu:
-                dtype = "float32"
+                dtype = "bfloat16"
             else:
                 dtype = "float16"
                 
@@ -85,7 +85,7 @@ class ChatModel:
         
         # correct dtype for cpu/gpu
         if no_gpu:
-            torch_dtype = torch.float32
+            torch_dtype = torch.bfloat16
         else:
             torch_dtype = torch.float16
 
