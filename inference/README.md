@@ -97,6 +97,6 @@ Requirements:
 - `togethercomputer/Pythia-Chat-Base-7B` = ~27 GB RAM
 - `togethercomputer/GPT-NeoXT-Chat-Base-20B` = ~78 GB RAM
 
-Note: -r must be passed (see [Running on consumer hardware](#running-on-consumer-hardware)) with --no-gpu. Some other quirks I noticed when loading the model w/o a gpu: you can't quantize it (must be float32 on cpu); disk offloading does not work.
+Note: -r must be passed (see [Running on consumer hardware](#running-on-consumer-hardware)) with --no-gpu.
 
 Example: `python inference/bot.py --model togethercomputer/Pythia-Chat-Base-7B --no-gpu -r 32`
