@@ -9,6 +9,7 @@ This directory contains code for OpenChatKit's inference.
 - [Running on specific GPUs](#running-on-specific-gpus)
 - [Running on consumer hardware](#running-on-consumer-hardware)
 - [Running on Google Colab](#running-on-google-colab) 
+- [Running on CPU](#running-on-cpu)
 
 ## Arguments
 - `--gpu-id`: primary GPU device to load inputs onto for inference. Default: `0`
@@ -89,9 +90,13 @@ In the [example notebook](example/example.ipynb), you will find code to run the 
 
 Or, simple click on the "Open In Colab" badge to run the example notebook.
 
-## Running on CPU-only
+## Running on CPU
 To run the OpenChatKit without a GPU add the option `--no-gpu`.
 
-Note: -r must be passed with --no-gpu. Some other quirks I noticed when loading the model w/o a gpu: you can't quantize it (must be float32 on cpu); disk offloading does not work.
+Requirements:
+- `togethercomputer/Pythia-Chat-Base-7B` = ~27 GB RAM
+- `togethercomputer/GPT-NeoXT-Chat-Base-20B` = ~78 GB RAM
+
+Note: -r must be passed (see [Running on consumer hardware](#running-on-consumer-hardware)) with --no-gpu. Some other quirks I noticed when loading the model w/o a gpu: you can't quantize it (must be float32 on cpu); disk offloading does not work.
 
 Example: `python inference/bot.py --model togethercomputer/Pythia-Chat-Base-7B --no-gpu -r 32`
