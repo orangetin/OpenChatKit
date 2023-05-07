@@ -88,3 +88,10 @@ How it works:
 In the [example notebook](example/example.ipynb), you will find code to run the Pythia-Chat-Base-7B 8-bit quantized model. This is recommended for the free version of Colab. If you'd like to disable quantization, simple remove the `--load-in-8bit` flag from the last cell.
 
 Or, simple click on the "Open In Colab" badge to run the example notebook.
+
+## Running on CPU-only
+To run the OpenChatKit without a GPU add the option `--no-gpu`.
+
+Note: -r must be passed with --no-gpu. Some other quirks I noticed when loading the model w/o a gpu: you can't quantize it (must be float32 on cpu); disk offloading does not work.
+
+Example: `python inference/bot.py --model togethercomputer/Pythia-Chat-Base-7B --no-gpu -r 32`
