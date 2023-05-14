@@ -13,6 +13,59 @@ import conversation as convo
 import retrieval.wikipedia as wp
 from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig, StoppingCriteria, StoppingCriteriaList, BitsAndBytesConfig
 from accelerate import infer_auto_device_map, init_empty_weights
+import torch
+
+
+def prepare_jit_inputs(inputs, model, tokenizer):
+    num_batch = len(inputs)
+    dummy_input = tokenizer.batch_encode_plus(inputs, return_tensors="pt", padding=True)
+    num_block_layers, num_attention_heads, num_embedding_size_per_head = sparse_model_config(model.config)
+    if model.config.model_type == "bloom":
+        past_key_values = tuple(
+            (
+                torch.zeros(int(num_attention_heads * num_batch), num_embedding_size_per_head, 1)
+                .to(model.config.torch_dtype)
+                .to(model.device),
+                torch.zeros(int(num_attention_heads * num_batch), 1, num_embedding_size_per_head)
+                .to(model.config.torch_dtype)
+                .to(model.device),
+            )
+            for _ in range(num_block_layers)
+        )
+    else:
+        past_key_values = tuple(
+            (
+                torch.zeros(num_batch, num_attention_heads, 1, num_embedding_size_per_head)
+                .to(model.config.torch_dtype)
+                .to(model.device),
+                torch.zeros(num_batch, num_attention_heads, 1, num_embedding_size_per_head)
+                .to(model.config.torch_dtype)
+                .to(model.device),
+            )
+            for _ in range(num_block_layers)
+        )
+
+    dummy_input["attention_mask"] = torch.cat(
+        [
+            torch.zeros(dummy_input["attention_mask"].shape[0], 1).to(dummy_input["attention_mask"].dtype),
+            dummy_input["attention_mask"],
+        ],
+        -1,
+    )
+
+    if model.config.use_cache:
+        jit_inputs = (
+            dummy_input["input_ids"].to(model.device),
+            past_key_values,
+            dummy_input["attention_mask"].to(model.device),
+        )
+    else:
+        jit_inputs = (
+            dummy_input["input_ids"].to(model.device),
+            dummy_input["attention_mask"].to(model.device),
+        )
+
+    return jit_inputs
 
 
 class StopWordsCriteria(StoppingCriteria):
@@ -48,7 +101,7 @@ class ChatModel:
     human_id = "<human>"
     bot_id = "<bot>"
 
-    def __init__(self, model_name, gpu_id, max_memory, load_in_8bit, no_gpu):
+    def __init__(self, model_name, gpu_id, max_memory, load_in_8bit, no_gpu, jit):
         if not no_gpu:
             device = torch.device('cuda', gpu_id)
         else:
@@ -98,6 +151,20 @@ class ChatModel:
         )
         
         self._tokenizer = AutoTokenizer.from_pretrained(model_name)
+        
+        if jit:
+            jit_input_texts = ["jit"]
+            jit_inputs = prepare_jit_inputs(jit_input_texts, self._model, self._tokenizer)
+            torch._C._jit_set_texpr_fuser_enabled(False)
+            model.config.return_dict = False
+            traced_model = torch.jit.trace(self._model, jit_inputs, strict=False)
+            traced_model = torch.jit.freeze(traced_model.eval())
+            traced_model(*jit_inputs)
+            traced_model(*jit_inputs)
+
+            model = _ModelFallbackWrapper(traced_model, model)
+        
+        
 
     def do_inference(self, prompt, max_new_tokens, do_sample, temperature, top_k, stream_callback=None):
         stop_criteria = StopWordsCriteria(self._tokenizer, [self.human_id], stream_callback)
@@ -126,7 +193,7 @@ class OpenChatKitShell(cmd.Cmd):
     intro = "Welcome to OpenChatKit shell.   Type /help or /? to list commands.\n"
     prompt = ">>> "
 
-    def __init__(self, gpu_id, model_name_or_path, max_tokens, sample, temperature, top_k, retrieval, max_memory, do_stream, load_in_8bit, no_gpu):
+    def __init__(self, gpu_id, model_name_or_path, max_tokens, sample, temperature, top_k, retrieval, max_memory, do_stream, load_in_8bit, no_gpu, jit):
         super().__init__()
         self._gpu_id = int(gpu_id)
         self._model_name_or_path = model_name_or_path
@@ -139,13 +206,14 @@ class OpenChatKitShell(cmd.Cmd):
         self._do_stream = do_stream
         self._load_in_8bit = load_in_8bit
         self._no_gpu = no_gpu
+        self._jit = jit
 
     def preloop(self):
         if not self._no_gpu:
             print(f"Loading {self._model_name_or_path} to cuda:{self._gpu_id}...")
         else:
             print(f"Loading {self._model_name_or_path} to cpu...")
-        self._model = ChatModel(self._model_name_or_path, self._gpu_id, self._max_memory, self._load_in_8bit, self._no_gpu)
+        self._model = ChatModel(self._model_name_or_path, self._gpu_id, self._max_memory, self._load_in_8bit, self._no_gpu, self._jit)
 
         if self._retrieval:
             print(f"Loading retrieval index...")
@@ -291,6 +359,9 @@ def main():
         action='store_true',
         help='indicates whether to load model in 8 bit'
     )
+    parser.add_argument(
+        "--jit", type=bool, default=False, help="Whether or not to use jit trace to accelerate inference"
+    )
     args = parser.parse_args()
     
     if args.no_gpu and args.cpu_ram == None:
@@ -322,6 +393,7 @@ def main():
         not args.no_stream,
         args.load_in_8bit,
         args.no_gpu,
+        args.jit,
     ).cmdloop()
 
 
