@@ -152,6 +152,9 @@ class ChatModel:
         
         self._tokenizer = AutoTokenizer.from_pretrained(model_name)
         
+        if self._tokenizer.pad_token is None:
+          self._tokenizer.pad_token = self._tokenizer.eos_token
+        
         if jit:
             jit_input_texts = ["jit"]
             jit_inputs = prepare_jit_inputs(jit_input_texts, self._model, self._tokenizer)
@@ -360,7 +363,7 @@ def main():
         help='indicates whether to load model in 8 bit'
     )
     parser.add_argument(
-        "--jit", type=bool, default=False, help="Whether or not to use jit trace to accelerate inference"
+        "--jit", action='store_true', default=False, help="Whether or not to use jit trace to accelerate inference"
     )
     args = parser.parse_args()
     
